@@ -1,20 +1,16 @@
-from __future__ import division
+from tensorflow import set_random_seed
+set_random_seed(2)
+import numpy as np
+np.random.seed(0)
+import tensorflow as tf
+print(tf.__version__)
+import os
+import pandas as pd
+import math
 
 import plot
 import process_data
-import train
 
-
-import pandas as pd
-import numpy as np
-np.random.seed(0)
-import math
-
-### Allocate the GPU usage on lpc
-train.AllocateVRam()
-
-###################################################################
-########### DEFINE inputs and target for training and the ROOT file
 inputVariables = ['eta', #'charge']#,'pf_hoRaw'], "p", 'pt'
                   'phi', 
                   'pf_totalRaw','pf_ecalRaw','pf_hcalRaw']
@@ -29,16 +25,33 @@ dataset, compareData = process_data.Get_tree_data(inputFiles,
                                                   withTracks = True, withDepth = True,
                                                   endcapOnly = False, barrelOnly = False,
                                                   withCorr = True, isTrainProbe = False)
-
-### prepare test and training data
 train_data, test_data, train_labels, test_labels = process_data.PreProcess(dataset, targetVariables)
 
+def makePrediction(test_data):
+    graph_def = tf.GraphDef()
 
-##############################################################
-########## Build and Train the model
-test_predictions = train.doMachineLearn(train_data, train_labels, test_data, test_labels)
-print "Saving Model"
-quit()
+    # These are set to the default names from exported models, update as needed.
+    filename = 'TrainOutput/keras_frozen.pb'
+
+    # Import the TF graph
+    with tf.gfile.GFile(filename, 'rb') as f:
+        graph_def.ParseFromString(f.read())
+        tf.import_graph_def(graph_def, name='')
+
+    input_node = 'main_input:0'
+    output_layer = 'first_output/BiasAdd:0'
+    def dropIndex(data):
+        data = data.drop(columns='index')
+        return data.copy()
+    with tf.Session() as sess:
+    
+        prob_tensor = sess.graph.get_tensor_by_name(output_layer)
+        test_predictions = sess.run(prob_tensor, {input_node: dropIndex(test_data).values })
+
+    test_predictions = test_predictions.ravel()
+    return test_predictions
+
+test_predictions = makePrediction(test_data)
 ##############################################################
 ##########Recover meaningful predictions
 test_predictions, test_labels = process_data.PostProcess(test_predictions, test_data, test_labels)
@@ -52,6 +65,19 @@ for variable in targetVariables:
 results['DNN'] = test_predictions
 
 
+
+################# START OF ------- TEST FOR KEN **** REMOVE LATER~~~~~~~~~~~!!!!!
+#compareData = test_data.copy()
+##add_access = 100
+#compareData['pf_ecalRaw'] = compareData['pf_ecalRaw']*1.5
+#compareData['pf_hcalRaw'] = compareData['pf_hcalRaw']*1.5
+#compareData['pf_totalRaw'] = compareData['pf_ecalRaw'] + compareData['pf_hcalRaw']
+#compareData['Response'] = makePrediction(compareData)
+#for variable in targetVariables:
+#    compareData[variable] = test_labels[variable]
+#plot.plot_hist_compare([compareData['Response']*compareData['gen_e'],(results['DNN']-results['gen_e'])],200,-200,200,['test','Keras'],"Pred-True [E]", "pdf/test_comparison.pdf")
+################# END OF ------- TEST FOR KEN **** REMOVE LATER~~~~~~~~~~~!!!!! 
+
 compareData['Response'] = (compareData['pf_totalRaw'] - compareData['gen_e'])/compareData['gen_e']
 results['Response'] = (results['DNN']-results['gen_e'])/results['gen_e']
 
@@ -61,7 +87,8 @@ results['Response'] = (results['DNN']-results['gen_e'])/results['gen_e']
 
 plot.plot_perf(results, None, "Pred vs True")
 
-plot.plot_hist_compare([compareData['Response'],results['Response']],100, -1.2,1.2,['PF_Corr','Keras'],"(Pred-True)/True [E]","pdf/perf_comparison.pdf")
+
+plot.plot_hist_compare([compareData['Response'],results['Response']],100, -1.2,1.2,['PF_Corr','Keras'],"(Pred-True)/True ","pdf/perf_comparison.pdf")
 plot.plot_hist_compare([compareData['Response'],(results['DNN']-results['p'])/results['p']],100, -1.2,1.2,['PF_Corr','Keras'],"(Pred-p)/p","pdf/perf_comparison_p.pdf")
 ### compare pt distribution ###
 plot.plot_hist_compare([compareData['pf_totalRaw'],results['DNN']],25,0,550,['PF_Corr','Keras'],"E","pdf/pt_comparison.pdf")
@@ -103,4 +130,5 @@ plot.EH_vs_E_plot(results['pf_ecalRaw']/results['gen_e'],results['pf_hcalRaw']/r
 
 plot.E_bin_response(compareData,results,20, 500,['PF_Corr','Keras'],-1.2,1.2,"(Pred-True)/True (GeV)","pdf/1DResponse.pdf")    
 plot.E_bin_response(compareData,results,4, 20,['PF_Corr','Keras'],-1.2,1.2,"(Pred-True)/True (GeV)","pdf/1DResponse.pdf")    
+
 

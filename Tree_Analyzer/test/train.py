@@ -11,6 +11,7 @@ import plot
 
 import pandas as pd
 import numpy as np
+np.random.seed(0)
 
 from tensorflow.python.keras import backend as K
 from keras import backend as k
@@ -29,13 +30,14 @@ def AllocateVRam():
     k.tensorflow_backend.set_session(tf.Session(config=cfg))
 
 
-def Build_Model(N_inputs, N_outputs, N_epochs):
-    
+def Build_Model(N_inputs, N_outputs, N_epochs, train_data):
     main_input = keras.layers.Input(shape=[N_inputs], name='main_input')
-    layer = keras.layers.Dense(28, activation='relu')(main_input)
-    layer = keras.layers.Dropout(0.4)(layer)
-    layer = keras.layers.Dense(28, activation='relu')(layer)
-    layer = keras.layers.Dropout(0.1)(layer)
+    layer = keras.layers.Lambda(lambda x: (x - K.constant(train_data.mean().values)) / K.constant(train_data.std().values), name='normalizeData')(main_input)
+    layer = keras.layers.Dropout(0.0)(layer)
+    layer = keras.layers.Dense(2*N_inputs, activation='relu', kernel_regularizer=keras.regularizers.l2(0.000))(layer)
+    layer = keras.layers.Dropout(0.0)(layer)
+    layer = keras.layers.Dense(2*N_inputs, activation='relu', kernel_regularizer=keras.regularizers.l1(0.000))(layer)
+    layer = keras.layers.Dropout(0.2)(layer)
     first_output = keras.layers.Dense(1, activation='linear', name='first_output')(layer)
     second_output = keras.layers.Dense(3, activation='softmax', name='second_output')(layer)
 
@@ -63,35 +65,40 @@ def doMachineLearn(train_data, train_labels, test_data, test_labels):
 
     
     ### Normalie Data
-    train_stats = train_data.describe()
-    train_stats = train_stats.transpose()
+
     def norm(data):
-        return (data - train_stats['mean']) / train_stats['std']
+        data_stats = data.describe()
+        data_stats = data_stats.transpose()
+        return (data - data_stats['mean']) / data_stats['std']
     def dropIndex(data):
         data = data.drop(columns='index')
         return data.copy()
+    def dataStats(data):
+        data_stats = data.describe()
+        data_stats = data_stats.transpose()
+        return data_stats['mean'], data_stats['std']
 
-    train_data = dropIndex(norm(train_data))
-    test_data  = dropIndex(norm(test_data))
+    train_data = dropIndex(train_data) 
+    test_data  = dropIndex(test_data)
     print "Training Variables: " + str(train_data.keys())
     print "Target Variables: " + str(train_labels.keys())
     #### Train Model
 
-    EPOCHS = 50;
-    model = Build_Model(len(train_data.keys()), len(train_labels.keys()), EPOCHS)
+    EPOCHS = 200;
+    model = Build_Model(len(train_data.keys()), len(train_labels.keys()), EPOCHS, train_data)
 
     #early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=20) # 10
     history = model.fit(
         train_data, [train_labels['gen_e'],train_labels['type']], # target is the response
-        epochs=EPOCHS, batch_size=2564, # 5128
+        epochs=EPOCHS, batch_size=512, # 5128
         validation_data=(test_data,[test_labels['gen_e'],test_labels['type']]),
         verbose=1) #callbacks=[early_stop])
     
     # Save trainig model as a protocol buffers file
     inputName = model.input.op.name.split(':')[0]
     outputName = model.output[0].op.name.split(':')[0]
-    #print "Input name:", inputName
-    #print "Output name:", outputName
+    print "Input name:", inputName
+    print "Output name:", outputName
     saver = tf.train.Saver()
     outputDir = "TrainOutput" ############### fix this
     saver.save(keras.backend.get_session(), outputDir+"/keras_model.ckpt")

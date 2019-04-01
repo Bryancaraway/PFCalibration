@@ -9,14 +9,16 @@ from sklearn.linear_model import LinearRegression
 
 import pandas as pd
 import numpy as np 
+np.random.seed(0)
 import math
 
 
-def plot_hist_compare(x,bins,labels,xlabel,fig_name):
+def plot_hist_compare(x,bins,xmin,xmax,labels,xlabel,fig_name):
     
     fig = plt.figure()
     plt.hist(x, 
              bins,
+             range = (xmin,xmax),
              density = True,
              histtype = 'step', 
              label = labels)
@@ -151,14 +153,14 @@ def EH_vs_E_plot(raw_Efrac, raw_Hfrac, corr_Efrac, corr_Hfrac, bins, label_raw, 
     plt.clf()
     plt.close()
 
-def E_bin_response(raw_data, dnn_results, bins, labels,xmin,xmax,x_label,outputPDF):
-    Ebins = np.linspace(0,500,bins+1)
+def E_bin_response(raw_data, dnn_results, bins, E_max, labels,xmin,xmax,x_label,outputPDF):
+    Ebins = np.linspace(0,E_max,bins+1)
     dnn_results['bin'] = np.digitize(dnn_results['gen_e'], Ebins)
     raw_data['bin'] = np.digitize(raw_data['gen_e'], Ebins)
     fig, response_plots = plt.subplots(int(round(bins/5)), int(round(bins/int(round(bins/5)))), figsize=(16, 10))
     fig.subplots_adjust(left=0.03, right=0.97, bottom=0.05, top=0.95, hspace=0.4, wspace=0.4)
     for i_bin,ax in enumerate(response_plots.flat):
-        hist_title = str((i_bin)*(500/bins))+"<=True E (GeV)<"+str((i_bin+1)*(500/bins))
+        hist_title = str((i_bin)*(E_max/bins))+"<=True E (GeV)<"+str((i_bin+1)*(E_max/bins))
         ax.hist([raw_data['Response'][raw_data['bin'] == (i_bin+1)], dnn_results['Response'][dnn_results['bin'] == (i_bin+1)]],50, range=(xmin,xmax), density=True, histtype = 'step' , label=labels)
     #ax.set_xlabel(x_label)
         ax.set_title(hist_title)

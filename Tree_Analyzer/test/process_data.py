@@ -1,6 +1,7 @@
 import uproot
 import pandas as pd
 import numpy as np 
+np.random.seed(0)
 import math 
 
 def Get_tree_data(inputFiles,inputVariables, targetVariables,
@@ -9,7 +10,7 @@ def Get_tree_data(inputFiles,inputVariables, targetVariables,
 
 #'charge']#,'pf_hoRaw']
     if(withTracks):
-        inputVariables += ["p","pt"]
+        inputVariables += ["p"]#,"pt"]
     if(withDepth):
         inputVariables += ['pf_hcalFrac1', 'pf_hcalFrac2', 'pf_hcalFrac3', 
                   'pf_hcalFrac4', 'pf_hcalFrac5', 'pf_hcalFrac6', 'pf_hcalFrac7']
@@ -28,8 +29,7 @@ def Get_tree_data(inputFiles,inputVariables, targetVariables,
 
     dataset = TChain(inputFiles)
     dataset = dataset.dropna()
-    print dataset
-
+    
     my_cut = (abs(dataset['eta'])< 2.4) & (dataset['pf_totalRaw'] >0) & (dataset['gen_e']>0) & (dataset['gen_e']<500)
     train_cut     = (dataset['pf_totalRaw']-dataset['gen_e'])/dataset['gen_e'] > -0.90 ## dont train on bad data with response of -1 
     dataset = dataset[(my_cut) & (train_cut)]
@@ -39,6 +39,9 @@ def Get_tree_data(inputFiles,inputVariables, targetVariables,
     if (barrelOnly):
         barrel_train = (abs(dataset['eta'])<1.5)
         dataset = dataset[barrel_train]
+    if (withTracks):
+        p_cut = (dataset['p']>0.0) & (dataset['p']<500.0)# & (dataset['pt']<500.0)
+        dataset = dataset[p_cut]
     dataset = dataset.reset_index()
     
     dataset['type'] = np.nan
@@ -76,7 +79,6 @@ def PreProcess(dataset, targetVariables):
             test_labels[key] = test_dataset[key].copy()
             del test_dataset[key]
             
-    print train_labels.tail()
     train_labels['gen_e'] = (train_dataset['pf_totalRaw']/train_labels['gen_e'])-1
 #test_labels = np.log(test_dataset['pf_totalRaw']/test_labels)#############
     test_labels['gen_e'] = (test_dataset['pf_totalRaw']/test_labels['gen_e'])-1######################
