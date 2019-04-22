@@ -28,7 +28,7 @@ dataset, compareData = process_data.Get_tree_data(inputFiles,
                                                   inputVariables, targetVariables,               
                                                   withTracks = True, withDepth = True,
                                                   endcapOnly = False, barrelOnly = False,
-                                                  withCorr = True, isTrainProbe = False)
+                                                  withCorr = True, isTrainProbe = True)
 
 ### prepare test and training data
 train_data, test_data, train_labels, test_labels = process_data.PreProcess(dataset, targetVariables)
@@ -66,6 +66,7 @@ plot.plot_hist_compare([compareData['Response'],(results['DNN']-results['p'])/re
 ### compare pt distribution ###
 plot.plot_hist_compare([compareData['pf_totalRaw'],results['DNN']],25,0,550,['PF_Corr','Keras'],"E","pdf/pt_comparison.pdf")
 
+plot.E_reso_plot(compareData['pf_totalRaw']/compareData['gen_e'],results['DNN']/results['gen_e'],100,500,['PF_Corr','Keras'],0,500,'Ecorr/ETrue','width/mean','pdf/resulution.pdf')
 ### Pred/True vs True ###
 #plot.profile_plot_compare(compareData['gen_e'], compareData['pf_totalRaw']/compareData['gen_e'], 'Raw',
 #                     test_labels, test_predictions/test_labels, 'Keras',

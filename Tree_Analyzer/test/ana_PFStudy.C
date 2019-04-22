@@ -84,7 +84,7 @@ bool VERBOSE    = false;  // print out mean +/- sigma for each channel or not
 
 std::vector<std::string> GetInputFiles(TString sampleType)
 {
-  int numFiles = 2;
+  int numFiles = 5;
   std::string path = "/eos/uscms/store/user/bcaraway/SinglePi/"; // "PUSinglePi"
   std::string startName = "_trees_";
   std::string endName = ".root";

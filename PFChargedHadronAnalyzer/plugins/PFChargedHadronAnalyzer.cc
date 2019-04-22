@@ -26,6 +26,7 @@
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
 
+#include "CondFormats/DataRecord/interface/PFCalibrationRcd.h"
 
 #include <TROOT.h>
 #include <TVector3.h>
@@ -102,6 +103,12 @@ PFChargedHadronAnalyzer::PFChargedHadronAnalyzer(const edm::ParameterSet& iConfi
   LogDebug("PFChargedHadronAnalyzer")
     <<" input collection : "<<inputTagPFCandidates_ ;
    
+  //KH --- PF hadron calibration on the fly --- 
+  calibrationsLabel_ = iConfig.getParameter<std::string>("calibrationsLabel");
+  calibration_.reset(new PFEnergyCalibration());
+  //boost::shared_ptr<PFEnergyCalibration> 
+  //calibration( new PFEnergyCalibration() ); 
+  //KH --- PF hadron calibration on the fly --- 
 
   // The root tuple
   outputfile_ = iConfig.getParameter<std::string>("rootOutputFile"); 
@@ -114,6 +121,8 @@ PFChargedHadronAnalyzer::PFChargedHadronAnalyzer(const edm::ParameterSet& iConfi
   s->Branch("hcal",&hcal_,"hcal/F");  
   s->Branch("corrEcal",&corrEcal_,"corrEcal/F");  
   s->Branch("corrHcal",&corrHcal_,"corrHcal/F");  
+  s->Branch("corr2Ecal",&corr2Ecal_,"corr2Ecal/F");  
+  s->Branch("corr2Hcal",&corr2Hcal_,"corr2Hcal/F");  
   s->Branch("ho",&ho_,"ho/F");  
   s->Branch("eta",&eta_,"eta/F");  
   s->Branch("phi",&phi_,"phi/F");
@@ -260,9 +269,18 @@ PFChargedHadronAnalyzer::~PFChargedHadronAnalyzer() {
 
 void 
 PFChargedHadronAnalyzer::beginRun(const edm::Run& run, 
-				  const edm::EventSetup & es) { }
+				  const edm::EventSetup & es) { 
 
-
+  //KH --- PF hadron calibration on the fly ---
+  //if ( useCalibrationsFromDB_ ) { 
+  // read the PFCalibration functions from the global tags
+  edm::ESHandle<PerformancePayload> perfH;
+  es.get<PFCalibrationRcd>().get(calibrationsLabel_, perfH);
+  PerformancePayloadFromTFormula const * pfCalibrations = static_cast< const PerformancePayloadFromTFormula *>(perfH.product());
+  calibration_->setCalibrationFunctions(pfCalibrations);
+  //}
+  //KH --- PF hadron calibration on the fly --- 
+}
 void 
 PFChargedHadronAnalyzer::analyze(const Event& iEvent, 
 				 const EventSetup& iSetup) {
@@ -384,6 +402,8 @@ PFChargedHadronAnalyzer::analyze(const Event& iEvent,
       hcal_ = 0.;
       corrEcal_ = 0.;
       corrHcal_ = 0.;
+      corr2Ecal_ = 0.;
+      corr2Hcal_ = 0.;
       hcalFrac1_ = 0.;
       hcalFrac2_ = 0.;
       hcalFrac3_ = 0.;
@@ -578,7 +598,30 @@ PFChargedHadronAnalyzer::analyze(const Event& iEvent,
     double eta =/*pfc.eta();//*/ et.trackRef()->eta();
     double phi =/*pfc.phi();//*/ et.trackRef()->phi();
     
-
+    //KH - Testing parametrized PF calibration 
+    double calibEcal = pfc.rawEcalEnergy();
+    double calibHcal = pfc.rawHcalEnergy();
+    double calibEcalRaw = pfc.rawEcalEnergy();
+    double calibHcalRaw = pfc.rawHcalEnergy();
+    calibration_->energyEmHad( p,calibEcal,calibHcal,
+			       eta,
+			       phi);
+    std::cout << "ecalRaw,hcalRaw,Eecal(corrected),Ehcal(corrected): "
+	      << ecalRaw << " "
+	      << hcalRaw << " "
+	      << pfc.ecalEnergy() << " "
+	      << pfc.hcalEnergy() << " "
+	      << p                << " " 
+	      << ((pfc.ecalEnergy() + pfc.ecalEnergy()) <= p)  << " "
+	      << std::endl;
+    std::cout << " on the fly                                      : "
+	      << calibEcalRaw << " "
+	      << calibHcalRaw << " "
+	      << calibEcal << " "
+	      << calibHcal << " "
+	      << p         << " "
+	      << ((calibEcal + calibHcal) <= p)  << " "
+	      << std::endl;
 
     //cout<<nEcal<<"   "<<nHcal<<endl;
     //ECAL element
@@ -805,6 +848,8 @@ PFChargedHadronAnalyzer::analyze(const Event& iEvent,
     hcal_ = hcalRaw;
     corrEcal_ = ecalCorr;
     corrHcal_ = hcalCorr;
+    corr2Ecal_ = calibEcal;
+    corr2Hcal_ = calibHcal;
     ho_ = hoRaw;
 
     hcalFrac1_ = hcalFrac1; 

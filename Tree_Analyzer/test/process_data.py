@@ -31,8 +31,8 @@ def Get_tree_data(inputFiles,inputVariables, targetVariables,
     dataset = dataset.dropna()
     
     my_cut = (abs(dataset['eta'])< 2.4) & (dataset['pf_totalRaw'] >0) & (dataset['gen_e']>0) & (dataset['gen_e']<500)
-    train_cut     = (dataset['pf_totalRaw']-dataset['gen_e'])/dataset['gen_e'] > -0.90 ## dont train on bad data with response of -1 
-    dataset = dataset[(my_cut) & (train_cut)]
+    #train_cut     = (dataset['pf_totalRaw']-dataset['gen_e'])/dataset['gen_e'] > -0.90 ## dont train on bad data with response of -1 
+    dataset = dataset[(my_cut)]# & (train_cut)]
     if (endcapOnly):
         endcap_train = (abs(dataset['eta'])< 2.4) & (abs(dataset['eta'])>1.6)
         dataset = dataset[endcap_train]
@@ -40,7 +40,7 @@ def Get_tree_data(inputFiles,inputVariables, targetVariables,
         barrel_train = (abs(dataset['eta'])<1.5)
         dataset = dataset[barrel_train]
     if (withTracks):
-        p_cut = (dataset['p']>0.0) & (dataset['p']<500.0)# & (dataset['pt']<500.0)
+        p_cut = (dataset['p']>0.0) #& (dataset['p']<500.0)# & (dataset['pt']<500.0)
         dataset = dataset[p_cut]
     dataset = dataset.reset_index()
     

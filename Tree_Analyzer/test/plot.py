@@ -24,6 +24,7 @@ def plot_hist_compare(x,bins,xmin,xmax,labels,xlabel,fig_name):
              label = labels)
     
     plt.xlabel(xlabel)
+    plt.yscale('log')
     plt.grid(True)
     plt.legend()
     plt.show()
@@ -98,31 +99,33 @@ def gausMean(x,y,bins,xmin,xmax):
     for i_bin in range(1,bins+1):
       temp_list = binned.get_group(i_bin)
       temp_list = temp_list.assign(mean=temp_list.y.mean(), std=temp_list.y.std())
-      temp_list = temp_list[(temp_list['y'] >= temp_list['mean'] - temp_list['std']) & (temp_list['y'] <= temp_list['mean'] + temp_list['std'])]
+      temp_list = temp_list[(temp_list['y'] >= temp_list['mean'] - 3*temp_list['std']) & (temp_list['y'] <= temp_list['mean'] + 3*temp_list['std'])]
       if i_bin == 1:
         temp_df = temp_list
       else:
         temp_df = temp_df.append(temp_list, ignore_index=True)
     return temp_df['x'], temp_df['y']
   
+def setupBins(x,y,bins,xmin,xmax):
+    means_result = scipy.stats.binned_statistic(x, [y,y**2], bins=bins, range=(xmin,xmax), statistic='mean')
+    bin_count = scipy.stats.binned_statistic(x, y, bins=bins, range=(xmin,xmax), statistic='count')
+    means, means2 = means_result.statistic
+    #standard_deviations = np.sqrt(means2 - means**2)/np.sqrt(bin_count.statistic)
+    standard_deviations = np.sqrt(means2 - means**2)
+    bin_edges = means_result.bin_edges
+    bin_width = (bin_edges[1] - bin_edges[0])
+    bin_centers = bin_edges[1:] - bin_width/2
+    return bin_centers, means, standard_deviations, bin_count.statistic
 
 def profile_plot_compare(x1,y1,label_1,x2,y2,label_2,bins,xmin,xmax,xlabel,ylabel,fig_name):
     pred_x = x2
     pred_y = y2
-    def setupBins(x,y,bins,xmin,xmax):
-        means_result = scipy.stats.binned_statistic(x, [y,y**2], bins=bins, range=(xmin,xmax), statistic='mean')
-        bin_count = scipy.stats.binned_statistic(x, [y,y**2], bins=bins, range=(xmin,xmax), statistic='count')
-        means, means2 = means_result.statistic
-        standard_deviations = np.sqrt(means2 - means**2)/np.sqrt(bin_count.statistic)
-        bin_edges = means_result.bin_edges
-        bin_width = (bin_edges[1] - bin_edges[0])
-        bin_centers = bin_edges[1:] - bin_width/2
-        return bin_centers, means, standard_deviations
+    
     
     x1, y1 = gausMean(x1, y1, bins, xmin, xmax) # cut out tails
     x2, y2 = gausMean(x2, y2, bins, xmin, xmax) # cut out tails
-    x1, y1, yerr1 = setupBins(x1, y1, bins, xmin, xmax)
-    x2, y2, yerr2 = setupBins(x2, y2, bins, xmin, xmax)
+    x1, y1, yerr1, n1 = setupBins(x1, y1, bins, xmin, xmax)
+    x2, y2, yerr2, n2 = setupBins(x2, y2, bins, xmin, xmax)
     fig = plt.figure()
     plt.errorbar(x=x1, y=y1, yerr=yerr1, xerr=(xmax-xmin)/(2*bins), linestyle='none', marker='.', label =label_1)
     plt.errorbar(x=x2, y=y2, yerr=yerr2, xerr=(xmax-xmin)/(2*bins), linestyle='none', marker='.', label =label_2)
@@ -167,5 +170,31 @@ def E_bin_response(raw_data, dnn_results, bins, E_max, labels,xmin,xmax,x_label,
     plt.legend()
     plt.show()
     fig.savefig(outputPDF)
+    plt.clf()
+    plt.close()
+
+def E_reso_plot(raw,dnn,label_1,label_2,bins,xmin,xmax,xlabel,ylabel,fig_name):
+    dnn = dnn[(dnn['DNN'] <= 500) & (dnn['DNN'] >= 0)]
+    x1 = raw['gen_e']
+    x2 = dnn['gen_e']
+    y1 = raw['pf_totalRaw']/raw['gen_e']
+    y2 = dnn['DNN']/dnn['gen_e']
+    #x1, y1 = gausMean(x1, y1, bins, xmin, xmax) # cut out tails
+    #x2, y2 = gausMean(x2, y2, bins, xmin, xmax) # cut out tails
+    bin1, mean1, std1, n1 = setupBins(x1, y1, bins, xmin, xmax)
+    bin2, mean2, std2, n2 = setupBins(x2, y2, bins, xmin, xmax)
+    y1 = std1/mean1
+    y2 = std2/mean2
+    yerr1 = y1*np.sqrt(2/n1)
+    yerr2 = y2*np.sqrt(2/n2)
+    fig = plt.figure()
+    plt.errorbar(x=bin1, y=y1, yerr=yerr1, xerr=(xmax-xmin)/(2*bins), linestyle='none', marker='.', label =label_1)
+    plt.errorbar(x=bin2, y=y2, yerr=yerr2, xerr=(xmax-xmin)/(2*bins), linestyle='none', marker='.', label =label_2)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+    fig.savefig(fig_name)
     plt.clf()
     plt.close()

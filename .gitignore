@@ -9,4 +9,4 @@ crab.log
 log/
 *.pdf
 *.png
-Tree_Analyzer/test/TrainOutput/
+Tree_Analyzer/test/TrainOutput*/

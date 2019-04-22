@@ -24,10 +24,10 @@ dataset, compareData = process_data.Get_tree_data(inputFiles,
                                                   inputVariables, targetVariables,               
                                                   withTracks = True, withDepth = True,
                                                   endcapOnly = False, barrelOnly = False,
-                                                  withCorr = True, isTrainProbe = False)
+                                                  withCorr = False, isTrainProbe = False)
 train_data, test_data, train_labels, test_labels = process_data.PreProcess(dataset, targetVariables)
 
-def makePrediction(test_data):
+def makePrediction(data):
     graph_def = tf.GraphDef()
 
     # These are set to the default names from exported models, update as needed.
@@ -41,12 +41,13 @@ def makePrediction(test_data):
     input_node = 'main_input:0'
     output_layer = 'first_output/BiasAdd:0'
     def dropIndex(data):
-        data = data.drop(columns='index')
-        return data.copy()
+        _data = data.copy()
+        _data = _data.drop(columns='index')
+        return _data.copy()
     with tf.Session() as sess:
     
         prob_tensor = sess.graph.get_tensor_by_name(output_layer)
-        test_predictions = sess.run(prob_tensor, {input_node: dropIndex(test_data).values })
+        test_predictions = sess.run(prob_tensor, {input_node: dropIndex(data).values })
 
     test_predictions = test_predictions.ravel()
     return test_predictions
@@ -54,17 +55,15 @@ def makePrediction(test_data):
 test_predictions = makePrediction(test_data)
 ##############################################################
 ##########Recover meaningful predictions
+weird_labels = test_labels.copy()########### TEST FOR KEN !!!!! ###########
 test_predictions, test_labels = process_data.PostProcess(test_predictions, test_data, test_labels)
-
 ##############################################################
 ########## TRAINING ANALYSIS 
 results = test_data.copy()
 for variable in targetVariables:
     results[variable] = test_labels[variable]
-
+del test_labels
 results['DNN'] = test_predictions
-
-
 
 ################# START OF ------- TEST FOR KEN **** REMOVE LATER~~~~~~~~~~~!!!!!
 #compareData = test_data.copy()
@@ -72,15 +71,36 @@ results['DNN'] = test_predictions
 #compareData['pf_ecalRaw'] = compareData['pf_ecalRaw']*1.5
 #compareData['pf_hcalRaw'] = compareData['pf_hcalRaw']*1.5
 #compareData['pf_totalRaw'] = compareData['pf_ecalRaw'] + compareData['pf_hcalRaw']
-#compareData['Response'] = makePrediction(compareData)
+#weird_predictions = makePrediction(compareData)
+#weird_predictions, test_labels = process_data.PostProcess(weird_predictions, compareData, weird_labels)
 #for variable in targetVariables:
 #    compareData[variable] = test_labels[variable]
-#plot.plot_hist_compare([compareData['Response']*compareData['gen_e'],(results['DNN']-results['gen_e'])],200,-200,200,['test','Keras'],"Pred-True [E]", "pdf/test_comparison.pdf")
+#
+#compareData['DNN'] = weird_predictions
+#compareData['Response'] = (compareData['DNN']-compareData['gen_e'])/compareData['gen_e']
+#plot.plot_hist_compare([(compareData['DNN']-compareData['gen_e'])/compareData['gen_e'],(compareData['pf_totalRaw']-compareData['gen_e'])/compareData['gen_e']],100,-2,2,['PredExcess','RawExcess'],"Pred-True [E]", "pdf/test_comparison.pdf")
+#results['Response'] = (results['pf_totalRaw']-results['gen_e'])/results['gen_e']
 ################# END OF ------- TEST FOR KEN **** REMOVE LATER~~~~~~~~~~~!!!!! 
+################# START Testing input importance ###################################
+#compareData['p'] = train_data['p'].mean()
+#compareData['pf_totalRaw'] = train_data['pf_totalRaw'].mean()
+#compareData['pf_hcalRaw'] = train_data['pf_hcalRaw'].mean()
+#for i in range(1,8):
+#    compareData['pf_hcalFrac'+str(i)] = train_data['pf_hcalFrac'+str(i)].mean()
+#compareData['pf_ecalRaw'] = train_data['pf_ecalRaw'].mean()
+#compareData['phi'] = train_data['phi'].mean()
 
+#weird_predictions = makePrediction(compareData)
+#weird_predictions, test_labels = process_data.PostProcess(weird_predictions, compareData, weird_labels)
+#for variable in targetVariables:
+#    compareData[variable] = test_labels[variable]
+##
+##compareData = compareData[compareData['gen_e'] >= 50]
+#compareData['DNN'] = weird_predictions
+#compareData['Response'] = (compareData['DNN']-compareData['gen_e'])/compareData['gen_e']
+################# END Testing input importance ###################################
 compareData['Response'] = (compareData['pf_totalRaw'] - compareData['gen_e'])/compareData['gen_e']
 results['Response'] = (results['DNN']-results['gen_e'])/results['gen_e']
-
 ##############################################
 ########## PLOT MAKING #######################
 
@@ -88,11 +108,15 @@ results['Response'] = (results['DNN']-results['gen_e'])/results['gen_e']
 plot.plot_perf(results, None, "Pred vs True")
 
 
-plot.plot_hist_compare([compareData['Response'],results['Response']],100, -1.2,1.2,['PF_Corr','Keras'],"(Pred-True)/True ","pdf/perf_comparison.pdf")
-plot.plot_hist_compare([compareData['Response'],(results['DNN']-results['p'])/results['p']],100, -1.2,1.2,['PF_Corr','Keras'],"(Pred-p)/p","pdf/perf_comparison_p.pdf")
+plot.plot_hist_compare([compareData['Response'],results['Response']],100, -1.2,1.2,['wierd','Keras'],"(Pred-True)/True ","pdf/perf_comparison.pdf")
+#plot.plot_hist_compare([compareData['Response'],(results['DNN']-results['p'])/results['p']],100, -1.2,1.2,['PF_Corr','Keras'],"(Pred-p)/p","pdf/perf_comparison_p.pdf")
 ### compare pt distribution ###
-plot.plot_hist_compare([compareData['pf_totalRaw'],results['DNN']],25,0,550,['PF_Corr','Keras'],"E","pdf/pt_comparison.pdf")
+#plot.plot_hist_compare([compareData['pf_totalRaw'],results['DNN']],25,0,550,['PF_Corr','Keras'],"E","pdf/pt_comparison.pdf")
 
+
+plot.E_reso_plot(compareData, results,
+                 'PF_Corr', 'Keras', 250, 0, 500,
+                 "True [E]", "width/mean", "pdf/reso_comparison.pdf")
 ### Pred/True vs True ###
 #plot.profile_plot_compare(compareData['gen_e'], compareData['pf_totalRaw']/compareData['gen_e'], 'Raw',
 #                     test_labels, test_predictions/test_labels, 'Keras',

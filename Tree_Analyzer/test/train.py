@@ -33,11 +33,11 @@ def AllocateVRam():
 def Build_Model(N_inputs, N_outputs, N_epochs, train_data):
     main_input = keras.layers.Input(shape=[N_inputs], name='main_input')
     layer = keras.layers.Lambda(lambda x: (x - K.constant(train_data.mean().values)) / K.constant(train_data.std().values), name='normalizeData')(main_input)
+    #layer = keras.layers.Dropout(1/N_inputs)(layer)
+    layer = keras.layers.Dense(2*N_inputs, activation='relu', kernel_regularizer=keras.regularizers.l2(0.00))(layer)
     layer = keras.layers.Dropout(0.0)(layer)
-    layer = keras.layers.Dense(2*N_inputs, activation='relu', kernel_regularizer=keras.regularizers.l2(0.000))(layer)
+    layer = keras.layers.Dense(2*N_inputs, activation='relu', kernel_regularizer=keras.regularizers.l1(0.00))(layer)
     layer = keras.layers.Dropout(0.0)(layer)
-    layer = keras.layers.Dense(2*N_inputs, activation='relu', kernel_regularizer=keras.regularizers.l1(0.000))(layer)
-    layer = keras.layers.Dropout(0.2)(layer)
     first_output = keras.layers.Dense(1, activation='linear', name='first_output')(layer)
     second_output = keras.layers.Dense(3, activation='softmax', name='second_output')(layer)
 
@@ -84,15 +84,15 @@ def doMachineLearn(train_data, train_labels, test_data, test_labels):
     print "Target Variables: " + str(train_labels.keys())
     #### Train Model
 
-    EPOCHS = 200;
+    EPOCHS = 400;
     model = Build_Model(len(train_data.keys()), len(train_labels.keys()), EPOCHS, train_data)
 
     #early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=20) # 10
     history = model.fit(
         train_data, [train_labels['gen_e'],train_labels['type']], # target is the response
-        epochs=EPOCHS, batch_size=512, # 5128
+        epochs=EPOCHS, batch_size=128000, # 5128
         validation_data=(test_data,[test_labels['gen_e'],test_labels['type']]),
-        verbose=1) #callbacks=[early_stop])
+        verbose=0) #callbacks=[early_stop])
     
     # Save trainig model as a protocol buffers file
     inputName = model.input.op.name.split(':')[0]

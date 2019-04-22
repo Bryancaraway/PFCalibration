@@ -54,7 +54,8 @@
 #include "DataFormats/EcalDetId/interface/ESDetId.h"
 #include "DataFormats/HcalRecHit/interface/HBHERecHit.h"
 
-
+#include "RecoParticleFlow/PFClusterTools/interface/PFEnergyCalibration.h"
+#include "CondFormats/DataRecord/interface/PFCalibrationRcd.h"
 /**\class PFChargedHadronAnalyzer 
 \brief selects isolated charged hadrons from PF Charged Hadrons
 
@@ -63,7 +64,7 @@
 */
 
 
-
+class PFEnergyCalibration;
 
 class PFChargedHadronAnalyzer : public edm::EDAnalyzer {
  public:
@@ -77,6 +78,8 @@ class PFChargedHadronAnalyzer : public edm::EDAnalyzer {
   virtual void analyze(const edm::Event&, const edm::EventSetup&);
 
   virtual void beginRun(const edm::Run & r, const edm::EventSetup & c);
+  
+  void setPFClusterCalibration(const std::shared_ptr<PFEnergyCalibration>&);
 
  private:
   
@@ -121,6 +124,10 @@ class PFChargedHadronAnalyzer : public edm::EDAnalyzer {
   // isMInbias simulation
   bool isMBMC_;
 
+  //KH Take PF cluster calibrations from Global Tag ?
+  bool useCalibrationsFromDB_;
+  std::string calibrationsLabel_;
+
   /// Min number of track hits for charged hadrons
   std::vector<int> nHitMin_;
   std::vector<double> nEtaMin_;
@@ -135,6 +142,7 @@ class PFChargedHadronAnalyzer : public edm::EDAnalyzer {
   
   float true_,p_,ecal_,hcal_,eta_,phi_,ho_;
   float corrHcal_,corrEcal_;
+  float corr2Ecal_,corr2Hcal_;
   float hcalFrac1_,hcalFrac2_,hcalFrac3_,hcalFrac4_,hcalFrac5_,hcalFrac6_,hcalFrac7_;
   float etaEcal_,phiEcal_;
   float ecal_rec_,hcal_rec_;
@@ -229,6 +237,7 @@ class PFChargedHadronAnalyzer : public edm::EDAnalyzer {
 
   const CaloGeometry*    theCaloGeom;
 
+  boost::shared_ptr<PFEnergyCalibration>  calibration_;
 
   void SaveRecHits(const edm::Event& iEvent, float eta_, float phi_);
 
